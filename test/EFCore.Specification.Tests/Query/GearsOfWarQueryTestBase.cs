@@ -8027,6 +8027,46 @@ namespace Microsoft.EntityFrameworkCore.Query
                 ss => ss.Set<LocustLeader>().OfType<LocustCommander>().Where(lc => lc.DefeatedBy != null));
         }
 
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual Task Projecting_property_converted_to_nullable_with_comparison(bool async)
+        {
+            return AssertQuery(
+                async,
+                ss => ss.Set<CogTag>().Select(x => new
+                {
+                    x.Note,
+                    Nullable = x.GearNickName != null ? new { x.Gear.Nickname, x.Gear.SquadId, x.Gear.HasSoulPatch } : null
+                }).Where(x => x.Nullable.SquadId == 1));
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual Task Projecting_property_converted_to_nullable_with_conditional(bool async)
+        {
+            return AssertQueryScalar(
+                async,
+                ss => ss.Set<CogTag>().Select(x => new
+                {
+                    x.Note,
+                    Nullable = x.GearNickName != null ? new { x.Gear.Nickname, x.Gear.SquadId, x.Gear.HasSoulPatch } : null
+                }).Select(x => x.Note != "K.I.A." ? x.Nullable.SquadId : -1));
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual Task Projecting_property_converted_to_nullable_with_function_call(bool async)
+        {
+            return AssertQuery(
+                async,
+                ss => ss.Set<CogTag>().Select(x => new
+                {
+                    x.Note,
+                    Nullable = x.GearNickName != null ? new { x.Gear.Nickname, x.Gear.SquadId, x.Gear.HasSoulPatch } : null
+                }).Select(x => x.Nullable.Nickname.Substring(0, 3)),
+                ss => ss.Set<CogTag>().Select(x => x.GearNickName == null ? null : x.GearNickName.Substring(0, 3)));
+        }
+
         protected GearsOfWarContext CreateContext()
             => Fixture.CreateContext();
 

@@ -300,11 +300,14 @@ namespace Microsoft.EntityFrameworkCore.Query.Internal
                     }
 
                     var nullExpression = Expression.Constant(null, nonNullExpression.Type);
-
-                    return Expression.Condition(
+                    var result = Expression.Condition(
                         conditionalExpression.Test,
                         binaryTest.NodeType == ExpressionType.Equal ? nullExpression : nonNullExpression,
                         binaryTest.NodeType == ExpressionType.Equal ? nonNullExpression : nullExpression);
+
+                    return result.Type != expression.Type
+                        ? Expression.Convert(result, expression.Type)
+                        : result;
                 }
             }
 

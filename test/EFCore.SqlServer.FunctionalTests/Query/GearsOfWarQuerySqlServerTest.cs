@@ -7443,6 +7443,52 @@ LEFT JOIN [Gears] AS [g] ON ([l].[DefeatedByNickname] = [g].[Nickname]) AND ([l]
 WHERE ([l].[Discriminator] = N'LocustCommander') AND ([g].[Nickname] IS NOT NULL AND [g].[SquadId] IS NOT NULL)");
         }
 
+        public override async Task Projecting_property_converted_to_nullable_with_comparison(bool async)
+        {
+            await base.Projecting_property_converted_to_nullable_with_comparison(async);
+
+            AssertSql(
+                @"SELECT [t].[Note], CASE
+    WHEN [t].[GearNickName] IS NOT NULL THEN CAST(1 AS bit)
+    ELSE CAST(0 AS bit)
+END, [g].[Nickname], [g].[SquadId], [g].[HasSoulPatch]
+FROM [Tags] AS [t]
+LEFT JOIN [Gears] AS [g] ON ([t].[GearNickName] = [g].[Nickname]) AND ([t].[GearSquadId] = [g].[SquadId])
+WHERE CASE
+    WHEN [t].[GearNickName] IS NOT NULL THEN [g].[SquadId]
+    ELSE NULL
+END = 1");
+        }
+
+        public override async Task Projecting_property_converted_to_nullable_with_conditional(bool async)
+        {
+            await base.Projecting_property_converted_to_nullable_with_conditional(async);
+
+            AssertSql(
+                @"SELECT CASE
+    WHEN ([t].[Note] <> N'K.I.A.') OR [t].[Note] IS NULL THEN CASE
+        WHEN [t].[GearNickName] IS NOT NULL THEN [g].[SquadId]
+        ELSE NULL
+    END
+    ELSE -1
+END
+FROM [Tags] AS [t]
+LEFT JOIN [Gears] AS [g] ON ([t].[GearNickName] = [g].[Nickname]) AND ([t].[GearSquadId] = [g].[SquadId])");
+        }
+
+        public override async Task Projecting_property_converted_to_nullable_with_function_call(bool async)
+        {
+            await base.Projecting_property_converted_to_nullable_with_function_call(async);
+
+            AssertSql(
+                @"SELECT SUBSTRING(CASE
+    WHEN [t].[GearNickName] IS NOT NULL THEN [g].[Nickname]
+    ELSE NULL
+END, 0 + 1, 3)
+FROM [Tags] AS [t]
+LEFT JOIN [Gears] AS [g] ON ([t].[GearNickName] = [g].[Nickname]) AND ([t].[GearSquadId] = [g].[SquadId])");
+        }
+
         private void AssertSql(params string[] expected)
             => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);
     }
