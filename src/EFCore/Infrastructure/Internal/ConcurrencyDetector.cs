@@ -28,9 +28,7 @@ namespace Microsoft.EntityFrameworkCore.Infrastructure.Internal
     /// </summary>
     public class ConcurrencyDetector : IConcurrencyDetector
     {
-        private int _inCriticalSection;
-        private static readonly AsyncLocal<bool> _threadHasLock = new();
-        private int _refCount;
+        private volatile int _inCriticalSection;
 
         /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
@@ -39,22 +37,9 @@ namespace Microsoft.EntityFrameworkCore.Infrastructure.Internal
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         public virtual ConcurrencyDetectorCriticalSectionDisposer EnterCriticalSection()
-        {
-            if (Interlocked.CompareExchange(ref _inCriticalSection, 1, 0) == 1)
-            {
-                if (!_threadHasLock.Value)
-                {
-                    throw new InvalidOperationException(CoreStrings.ConcurrentMethodInvocation);
-                }
-            }
-            else
-            {
-                _threadHasLock.Value = true;
-            }
-
-            _refCount++;
-            return new ConcurrencyDetectorCriticalSectionDisposer(this);
-        }
+            => Interlocked.CompareExchange(ref _inCriticalSection, 1, 0) == 1
+                ? throw new InvalidOperationException(CoreStrings.ConcurrentMethodInvocation)
+                : new ConcurrencyDetectorCriticalSectionDisposer(this);
 
         /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
@@ -64,13 +49,12 @@ namespace Microsoft.EntityFrameworkCore.Infrastructure.Internal
         /// </summary>
         public virtual void ExitCriticalSection()
         {
-            Check.DebugAssert(_inCriticalSection == 1, "Expected to be in a critical section");
-
-            if (--_refCount == 0)
-            {
-                _threadHasLock.Value = false;
-                _inCriticalSection = 0;
-            }
+#if DEBUG
+            var previousValue = Interlocked.Exchange(ref _inCriticalSection, 0);
+            Check.DebugAssert(previousValue == 1, "Expected to be in a critical section");
+#else
+            _inCriticalSection = 0;
+#endif
         }
     }
 }
